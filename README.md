@@ -54,7 +54,14 @@ python app.py
 * Enterprise knowledge assistants
 
 ---
+## 🔥 Key Highlights
 
+- Built a production-ready RAG pipeline from scratch
+- Designed modular architecture (API + Core services)
+- Implemented semantic search using FAISS
+- Integrated LLM for context-aware answer generation
+- Created ChatGPT-like UI using Gradio
+---
 ## 💡 Future Improvements
 
 * Authentication
