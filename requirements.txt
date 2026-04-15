@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+python-multipart
+pydantic
+langchain
+langchain-community
+langchain-core
+langchain-text-splitters
+pypdf
+sentence-transformers
+faiss-cpu
+transformers
+accelerate
+sentencepiece
+gradio
+requests
