@@ -26,9 +26,23 @@ def upload_file_fn(file):
 
 def respond(message, history):
     try:
+        recent_history = history[-4:] if history else []
+
+        memory_text = ""
+        for user_msg, bot_msg in recent_history:
+            memory_text += f"User: {user_msg}\nAssistant: {bot_msg}\n"
+
+        final_question = f"""
+Conversation history:
+{memory_text}
+
+Current question:
+{message}
+""".strip()
+
         response = requests.post(
             f"{API_BASE}/query",
-            json={"question": message},
+            json={"question": final_question},
             timeout=300
         )
         response.raise_for_status()
@@ -49,26 +63,3 @@ def respond(message, history):
 
     except Exception as e:
         return f"Error: {e}"
-
-
-with gr.Blocks(theme=gr.themes.Soft(), title="Document Chat Assistant") as demo:
-    gr.Markdown("# 🤖 Document Chat Assistant")
-    gr.Markdown("Upload a document and ask questions in plain English.")
-
-    with gr.Row():
-        file_input = gr.File(label="Upload PDF/TXT")
-        status = gr.Textbox(label="Status", interactive=False)
-
-    upload_button = gr.Button("🚀 Upload & Index")
-    upload_button.click(upload_file_fn, inputs=file_input, outputs=status)
-
-    gr.ChatInterface(
-        fn=respond,
-        chatbot=gr.Chatbot(height=500),
-        textbox=gr.Textbox(
-            placeholder="Ask something like: What is the overall purpose of this agreement?",
-            container=False
-        )
-    )
-
-demo.launch()
