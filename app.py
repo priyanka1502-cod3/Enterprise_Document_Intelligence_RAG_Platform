@@ -43,11 +43,19 @@ def answer_question(question):
         for doc in results[:3]:
             page = doc.metadata.get("page", "N/A")
             preview = doc.page_content[:180].replace("\n", " ").strip()
-            sources.append(f"Source {len(sources)+1} | Page {page}\n{preview}...")
+            sources.append(f"Source {len(sources) + 1} | Page {page}\n{preview}...")
 
-        source_text = "\n".join(sources) if sources else "No sources available."
+        source_text = "\n\n".join(sources) if sources else "No sources available."
 
-        return answer + "\n\nSources:\n" + source_text
+        formatted_response = f"""### Answer
+{answer}
+
+---
+
+### Sources
+{source_text}
+"""
+        return formatted_response
 
     except Exception as e:
         return f"Error: {e}"
@@ -56,10 +64,11 @@ def answer_question(question):
 with gr.Blocks(theme=gr.themes.Soft(), title="Enterprise Document Intelligence RAG Platform") as demo:
     gr.Markdown("# Enterprise Document Intelligence RAG Platform")
     gr.Markdown(
-    "Upload a PDF or TXT document and ask questions. "
-    "The system uses Retrieval-Augmented Generation with FAISS vector search "
-    "and source-grounded answer generation."
-     )
+        "Upload a PDF or TXT document and ask questions. "
+        "The system uses Retrieval-Augmented Generation with FAISS vector search "
+        "and source-grounded answer generation."
+    )
+
     file_input = gr.File(label="Upload PDF or TXT Document")
     upload_status = gr.Textbox(label="Indexing Status", interactive=False)
 
@@ -68,13 +77,20 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Enterprise Document Intelligence R
 
     question = gr.Textbox(
         label="Ask a Question",
-        placeholder="Example: Summarize the main purpose of this document."
+        placeholder="Examples: Summarize the document | What are the key findings? | What obligations are mentioned?"
     )
 
-    answer = gr.Textbox(label="Answer with Sources", lines=12)
+    answer = gr.Markdown(label="Answer with Sources")
 
     ask_btn = gr.Button("Ask")
     ask_btn.click(answer_question, inputs=question, outputs=answer)
 
+    gr.Markdown(
+        """
+        ---
+        Built with LangChain, FAISS, Hugging Face Transformers, and Gradio.
+        """
+    )
 
-demo.launch()
+
+demo.launch(server_name="0.0.0.0", server_port=7860)
