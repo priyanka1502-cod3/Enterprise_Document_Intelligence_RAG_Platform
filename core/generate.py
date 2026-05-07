@@ -12,44 +12,26 @@ def _clean_text(text: str) -> str:
 
 
 def generate_answer(query: str, docs) -> str:
-    is_summary = any(x in query.lower() for x in ["overall", "about", "purpose", "summary"])
-
     context_parts = []
-    for doc in docs[:3]:
+
+    for i, doc in enumerate(docs[:3], start=1):
         text = getattr(doc, "page_content", "")
         text = _clean_text(text)
-        context_parts.append(text[:MAX_CONTEXT_CHARS])
+        context_parts.append(f"Source {i}: {text[:MAX_CONTEXT_CHARS]}")
 
     context = "\n\n".join(context_parts)
 
-    if is_summary:
-        prompt = f"""
-You are a helpful assistant.
+    prompt = f"""
+You are an intelligent document assistant.
 
-Describe the overall purpose of the document in simple English.
-
-Rules:
-- One short sentence
-- No legal jargon
-- No numbers or percentages
-- Be general, not clause-specific
-
-Context:
-{context}
-
-Answer:
-""".strip()
-    else:
-        prompt = f"""
-You are a helpful assistant.
-
-Answer the question using only the context below.
+Answer the user question using only the provided context.
 
 Rules:
-- 1 to 2 short sentences
-- Use simple English
-- Do not copy long legal text
-- If unclear, say "The document does not state this clearly."
+- Give a clear and simple answer.
+- Keep the answer concise.
+- Do not copy long text from the document.
+- If the answer is not available in the context, say: "I could not find this information in the document."
+- Do not hallucinate.
 
 Context:
 {context}
@@ -69,13 +51,15 @@ Answer:
 
     outputs = model.generate(
         **inputs,
-        max_new_tokens=60
+        max_new_tokens=120,
+        num_beams=4,
+        early_stopping=True
     )
 
     answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
     answer = _clean_text(answer)
 
-    if not answer or len(answer.split()) < 3:
-        return "This document defines terms and responsibilities between the involved parties."
+    if not answer or len(answer.split()) < 4:
+        return "I could not generate a reliable answer from the retrieved context."
 
     return answer

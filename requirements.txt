@@ -6,4 +6,8 @@ sentence-transformers
 faiss-cpu
 transformers
 torch
+<<<<<<< HEAD
 pypdf
+=======
+pypdf
+>>>>>>> 27f0468 (Polish answer generation and UI formatting)

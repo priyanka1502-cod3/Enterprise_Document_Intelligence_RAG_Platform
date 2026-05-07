@@ -3,4 +3,8 @@ __pycache__/
 *.pyc
 data/uploads/
 data/index/
+<<<<<<< HEAD
 .env
+=======
+.env
+>>>>>>> 27f0468 (Polish answer generation and UI formatting)

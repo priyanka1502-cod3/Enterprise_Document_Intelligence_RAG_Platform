@@ -43,7 +43,7 @@ def answer_question(question):
         for doc in results[:3]:
             page = doc.metadata.get("page", "N/A")
             preview = doc.page_content[:180].replace("\n", " ").strip()
-            sources.append(f"- Page {page}: {preview}...")
+            sources.append(f"Source {len(sources)+1} | Page {page}\n{preview}...")
 
         source_text = "\n".join(sources) if sources else "No sources available."
 
@@ -55,8 +55,11 @@ def answer_question(question):
 
 with gr.Blocks(theme=gr.themes.Soft(), title="Enterprise Document Intelligence RAG Platform") as demo:
     gr.Markdown("# Enterprise Document Intelligence RAG Platform")
-    gr.Markdown("Upload a PDF or TXT document and ask questions using Retrieval-Augmented Generation.")
-
+    gr.Markdown(
+    "Upload a PDF or TXT document and ask questions. "
+    "The system uses Retrieval-Augmented Generation with FAISS vector search "
+    "and source-grounded answer generation."
+     )
     file_input = gr.File(label="Upload PDF or TXT Document")
     upload_status = gr.Textbox(label="Indexing Status", interactive=False)
 
@@ -65,7 +68,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Enterprise Document Intelligence R
 
     question = gr.Textbox(
         label="Ask a Question",
-        placeholder="Example: What is the document about?"
+        placeholder="Example: Summarize the main purpose of this document."
     )
 
     answer = gr.Textbox(label="Answer with Sources", lines=12)
