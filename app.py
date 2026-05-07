@@ -1,65 +1,77 @@
-import mimetypes
-import requests
 import gradio as gr
+from pathlib import Path
 
-API_BASE = "http://127.0.0.1:8000"
+from core.ingest import load_documents, split_documents
+from core.vectorstore import create_vectorstore
+from core.retrieve import search_documents
+from core.generate import generate_answer
+
+UPLOAD_DIR = "data/uploads"
+Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
 
-def upload_file_fn(file):
+def upload_file(file):
     if file is None:
-        return "Please choose a PDF or TXT file first."
+        return "Please upload a PDF or TXT file."
 
-    filename = file.name.split("/")[-1]
-    mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    file_path = Path(UPLOAD_DIR) / Path(file.name).name
+
+    with open(file.name, "rb") as src:
+        with open(file_path, "wb") as dst:
+            dst.write(src.read())
+
+    docs = load_documents(str(file_path))
+    chunks = split_documents(docs)
+    create_vectorstore(chunks)
+
+    return f"Uploaded and indexed successfully. Total chunks: {len(chunks)}"
+
+
+def answer_question(question):
+    if not question.strip():
+        return "Please enter a question."
 
     try:
-        with open(file.name, "rb") as f:
-            files = {"file": (filename, f, mime_type)}
-            response = requests.post(f"{API_BASE}/upload", files=files, timeout=300)
+        results = search_documents(question, k=3)
 
-        response.raise_for_status()
-        data = response.json()
-        return f"Uploaded and indexed: {data['filename']} | Total chunks: {data['total_chunks']}"
-    except requests.RequestException as e:
-        return f"Upload failed: {e}"
+        if not results:
+            return "No relevant content found."
 
+        answer = generate_answer(question, results)
 
-def respond(message, history):
-    try:
-        recent_history = history[-4:] if history else []
+        sources = []
+        for doc in results[:3]:
+            page = doc.metadata.get("page", "N/A")
+            preview = doc.page_content[:180].replace("\n", " ").strip()
+            sources.append(f"- Page {page}: {preview}...")
 
-        memory_text = ""
-        for user_msg, bot_msg in recent_history:
-            memory_text += f"User: {user_msg}\nAssistant: {bot_msg}\n"
+        source_text = "\n".join(sources) if sources else "No sources available."
 
-        final_question = f"""
-Conversation history:
-{memory_text}
-
-Current question:
-{message}
-""".strip()
-
-        response = requests.post(
-            f"{API_BASE}/query",
-            json={"question": final_question},
-            timeout=300
-        )
-        response.raise_for_status()
-        data = response.json()
-
-        answer = data.get("answer", "No answer returned.")
-        sources = data.get("sources", [])
-
-        source_lines = []
-        for src in sources[:2]:
-            page = src.get("page", "N/A")
-            preview = src.get("preview", "").replace("\n", " ").strip()
-            source_lines.append(f"• Page {page}: {preview[:120]}...")
-
-        source_text = "\n".join(source_lines) if source_lines else "No sources available."
-
-        return f"{answer}\n\nSources:\n{source_text}"
+        return answer + "\n\nSources:\n" + source_text
 
     except Exception as e:
         return f"Error: {e}"
+
+
+with gr.Blocks(theme=gr.themes.Soft(), title="Enterprise Document Intelligence RAG Platform") as demo:
+    gr.Markdown("# Enterprise Document Intelligence RAG Platform")
+    gr.Markdown("Upload a PDF or TXT document and ask questions using Retrieval-Augmented Generation.")
+
+    file_input = gr.File(label="Upload PDF or TXT Document")
+    upload_status = gr.Textbox(label="Indexing Status", interactive=False)
+
+    upload_btn = gr.Button("Upload & Index")
+    upload_btn.click(upload_file, inputs=file_input, outputs=upload_status)
+
+    question = gr.Textbox(
+        label="Ask a Question",
+        placeholder="Example: What is the document about?"
+    )
+
+    answer = gr.Textbox(label="Answer with Sources", lines=12)
+
+    ask_btn = gr.Button("Ask")
+    ask_btn.click(answer_question, inputs=question, outputs=answer)
+
+
+demo.launch()
