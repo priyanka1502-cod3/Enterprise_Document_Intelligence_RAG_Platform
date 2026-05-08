@@ -11,3 +11,4 @@ pypdf
 =======
 pypdf
 >>>>>>> 27f0468 (Polish answer generation and UI formatting)
+groq

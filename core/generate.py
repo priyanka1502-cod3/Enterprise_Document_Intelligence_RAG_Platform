@@ -1,65 +1,61 @@
+import os
 import re
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-from core.config import GEN_MODEL, MAX_CONTEXT_CHARS
+from groq import Groq
 
-tokenizer = AutoTokenizer.from_pretrained(GEN_MODEL)
-model = AutoModelForSeq2SeqLM.from_pretrained(GEN_MODEL)
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
 def _clean_text(text: str) -> str:
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def generate_answer(query: str, docs) -> str:
     context_parts = []
 
     for i, doc in enumerate(docs[:3], start=1):
-        text = getattr(doc, "page_content", "")
-        text = _clean_text(text)
-        context_parts.append(f"Source {i}: {text[:MAX_CONTEXT_CHARS]}")
+        text = _clean_text(getattr(doc, "page_content", ""))
+        context_parts.append(f"Source {i}:\n{text[:1200]}")
 
     context = "\n\n".join(context_parts)
 
-    prompt = f"""
-You are an intelligent document assistant.
+    system_prompt = """
+You are an enterprise document intelligence assistant.
+Use ONLY the provided context.
+Do not hallucinate.
+If the answer is not found, say: "I could not find this information in the document."
+Write clearly and professionally.
+""".strip()
 
-Answer the user question using only the provided context.
-
-Rules:
-- Give a clear and simple answer.
-- Keep the answer concise.
-- Do not copy long text from the document.
-- If the answer is not available in the context, say: "I could not find this information in the document."
-- Do not hallucinate.
-
+    user_prompt = f"""
 Context:
 {context}
 
 Question:
 {query}
 
-Answer:
+Answer format:
+Short Summary:
+- ...
+
+Key Points:
+- ...
+- ...
+- ...
 """.strip()
 
-    inputs = tokenizer(
-        prompt,
-        return_tensors="pt",
-        truncation=True,
-        max_length=512
-    )
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.2,
+            max_tokens=400,
+        )
 
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=120,
-        num_beams=4,
-        early_stopping=True
-    )
+        return response.choices[0].message.content.strip()
 
-    answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    answer = _clean_text(answer)
-
-    if not answer or len(answer.split()) < 4:
-        return "I could not generate a reliable answer from the retrieved context."
-
-    return answer
+    except Exception as e:
+        return f"Groq generation failed: {e}"
